@@ -285,7 +285,10 @@ This project is licensed under the MIT License.
 
 ## 👥 Authors
 
-Odoo HRMS Team
+-Arman Sunasara
+-Rana Heet
+-Neel Patel
+-Harshit raval
 
 ## 🙏 Acknowledgments
 
@@ -293,9 +296,6 @@ Odoo HRMS Team
 - React.js community
 - MongoDB documentation
 
-## 📞 Support
-
-For support, please open an issue in the repository or contact the development team.
 
 ---
 
