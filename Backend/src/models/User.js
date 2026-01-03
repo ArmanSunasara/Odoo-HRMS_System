@@ -3,6 +3,13 @@ const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema(
   {
+    employeeId: {
+      type: String,
+      required: [true, "Employee ID is required"],
+      unique: true,
+      trim: true,
+      uppercase: true,
+    },
     name: {
       type: String,
       required: [true, "Name is required"],
@@ -23,22 +30,13 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters"],
-      select: false, // Don't include password in queries by default
+      select: false,
     },
     role: {
       type: String,
-      enum: ["employee", "manager", "admin"],
-      default: "employee",
-    },
-    position: {
-      type: String,
-      trim: true,
-      maxlength: [50, "Position cannot exceed 50 characters"],
-    },
-    department: {
-      type: String,
-      trim: true,
-      maxlength: [50, "Department cannot exceed 50 characters"],
+      enum: ["EMPLOYEE", "ADMIN"],
+      default: "EMPLOYEE",
+      required: true,
     },
     phone: {
       type: String,
@@ -49,21 +47,44 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    avatar: {
-      type: String, // URL to avatar image
+    jobDetails: {
+      position: {
+        type: String,
+        trim: true,
+        maxlength: [50, "Position cannot exceed 50 characters"],
+      },
+      department: {
+        type: String,
+        trim: true,
+        maxlength: [50, "Department cannot exceed 50 characters"],
+      },
+      dateOfJoining: {
+        type: Date,
+      },
     },
-    dateOfJoining: {
-      type: Date,
+    salaryStructure: {
+      basicSalary: {
+        type: Number,
+        min: [0, "Basic salary cannot be negative"],
+      },
+      allowances: {
+        type: Number,
+        default: 0,
+        min: [0, "Allowances cannot be negative"],
+      },
+      deductions: {
+        type: Number,
+        default: 0,
+        min: [0, "Deductions cannot be negative"],
+      },
     },
-    dateOfBirth: {
-      type: Date,
+    profilePicture: {
+      type: String,
+      trim: true,
     },
-    isActive: {
+    isVerified: {
       type: Boolean,
-      default: true,
-    },
-    lastLogin: {
-      type: Date,
+      default: false,
     },
   },
   {
@@ -73,9 +94,7 @@ const userSchema = new mongoose.Schema(
 
 // Hash password before saving
 userSchema.pre("save", async function (next) {
-  // Only hash if password is modified
   if (!this.isModified("password")) return next();
-
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
@@ -84,5 +103,9 @@ userSchema.pre("save", async function (next) {
 userSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
+
+// Indexes
+userSchema.index({ employeeId: 1 });
+userSchema.index({ email: 1 });
 
 module.exports = mongoose.model("User", userSchema);

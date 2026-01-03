@@ -2,14 +2,14 @@ const mongoose = require("mongoose");
 
 const payrollSchema = new mongoose.Schema(
   {
-    user: {
+    employee: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    period: {
-      type: String, // Format: "MM/YYYY" or "Month Year"
-      required: [true, "Payroll period is required"],
+    month: {
+      type: String,
+      required: [true, "Month is required"],
       trim: true,
     },
     basicSalary: {
@@ -20,53 +20,16 @@ const payrollSchema = new mongoose.Schema(
     allowances: {
       type: Number,
       default: 0,
-    },
-    bonuses: {
-      type: Number,
-      default: 0,
+      min: [0, "Allowances cannot be negative"],
     },
     deductions: {
       type: Number,
       default: 0,
+      min: [0, "Deductions cannot be negative"],
     },
     netSalary: {
       type: Number,
       required: [true, "Net salary is required"],
-    },
-    tax: {
-      type: Number,
-      default: 0,
-    },
-    status: {
-      type: String,
-      enum: ["Processing", "Paid", "Failed"],
-      default: "Processing",
-    },
-    paymentDate: {
-      type: Date,
-    },
-    paymentMethod: {
-      type: String,
-      enum: ["Bank Transfer", "Cash", "Check"],
-      default: "Bank Transfer",
-    },
-    bankDetails: {
-      accountNumber: String,
-      bankName: String,
-      ifscCode: String,
-    },
-    generatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-    generatedAt: {
-      type: Date,
-      default: Date.now,
-    },
-    remarks: {
-      type: String,
-      trim: true,
-      maxlength: [500, "Remarks cannot exceed 500 characters"],
     },
   },
   {
@@ -74,9 +37,8 @@ const payrollSchema = new mongoose.Schema(
   }
 );
 
-// Index for efficient queries
-payrollSchema.index({ user: 1, period: 1 }, { unique: true });
-payrollSchema.index({ status: 1 });
-payrollSchema.index({ user: 1, paymentDate: -1 });
+// Indexes
+payrollSchema.index({ employee: 1, month: 1 }, { unique: true });
+payrollSchema.index({ employee: 1, month: -1 });
 
 module.exports = mongoose.model("Payroll", payrollSchema);

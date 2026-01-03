@@ -5,12 +5,11 @@ const User = require("../models/User");
 // @access  Private/Admin
 const getUsers = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, role, department } = req.query;
+    const { page = 1, limit = 10, role } = req.query;
 
     // Build filter object
     const filter = {};
     if (role) filter.role = role;
-    if (department) filter.department = department;
 
     const users = await User.find(filter)
       .select("-password")
@@ -63,11 +62,11 @@ const updateUser = async (req, res, next) => {
   try {
     const allowedFields = [
       "name",
-      "position",
-      "department",
       "phone",
       "address",
-      "avatar",
+      "profilePicture",
+      "jobDetails",
+      "salaryStructure",
     ];
     const updateData = {};
 
@@ -108,10 +107,10 @@ const updateUserRole = async (req, res, next) => {
   try {
     const { role } = req.body;
 
-    if (!role || !["employee", "manager", "admin"].includes(role)) {
+    if (!role || !["EMPLOYEE", "ADMIN"].includes(role)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid role specified",
+        message: "Invalid role specified. Must be EMPLOYEE or ADMIN",
       });
     }
 
@@ -188,11 +187,9 @@ const updateProfile = async (req, res, next) => {
   try {
     const allowedFields = [
       "name",
-      "position",
-      "department",
       "phone",
       "address",
-      "avatar",
+      "profilePicture",
     ];
     const updateData = {};
 

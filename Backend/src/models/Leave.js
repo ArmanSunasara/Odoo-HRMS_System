@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const leaveSchema = new mongoose.Schema(
   {
-    user: {
+    employee: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
@@ -10,15 +10,7 @@ const leaveSchema = new mongoose.Schema(
     leaveType: {
       type: String,
       required: [true, "Leave type is required"],
-      enum: [
-        "Casual",
-        "Vacation",
-        "Sick",
-        "Personal",
-        "Maternity",
-        "Paternity",
-        "Unpaid",
-      ],
+      enum: ["Paid", "Sick", "Unpaid"],
     },
     startDate: {
       type: Date,
@@ -36,40 +28,23 @@ const leaveSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected", "Cancelled"],
+      enum: ["Pending", "Approved", "Rejected"],
       default: "Pending",
     },
-    appliedDate: {
-      type: Date,
-      default: Date.now,
-    },
-    approvedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-    approvedDate: {
-      type: Date,
-    },
-    managerNote: {
+    adminComment: {
       type: String,
       trim: true,
-      maxlength: [500, "Manager note cannot exceed 500 characters"],
+      maxlength: [500, "Admin comment cannot exceed 500 characters"],
     },
-    documents: [
-      {
-        type: String, // URLs to supporting documents
-        trim: true,
-      },
-    ],
   },
   {
     timestamps: true,
   }
 );
 
-// Index for efficient queries
-leaveSchema.index({ user: 1, startDate: 1 });
+// Indexes
+leaveSchema.index({ employee: 1, startDate: 1 });
 leaveSchema.index({ status: 1 });
-leaveSchema.index({ user: 1, status: 1 });
+leaveSchema.index({ employee: 1, status: 1 });
 
 module.exports = mongoose.model("Leave", leaveSchema);

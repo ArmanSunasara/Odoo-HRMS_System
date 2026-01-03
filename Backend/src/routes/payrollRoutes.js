@@ -1,29 +1,23 @@
 const express = require("express");
 const {
-  getPayrollHistory,
-  getPayrollDetails,
-  generatePayroll,
+  getPayroll,
+  getPayrollById,
+  createPayroll,
   updatePayroll,
-  deletePayroll,
-  getPayrollSummary,
-  processPayment,
 } = require("../controllers/payrollController");
-const { protect, authorize } = require("../middlewares/authMiddleware");
+const { protect } = require("../middlewares/authMiddleware");
+const { isAdmin } = require("../middlewares/roleMiddleware");
+const { createPayrollValidationRules, validate } = require("../utils/validators");
 
 const router = express.Router();
 
-router.route("/history").get(protect, getPayrollHistory);
-router.route("/details/:id").get(protect, getPayrollDetails);
-router.route("/summary/:userId").get(protect, getPayrollSummary);
 router
-  .route("/generate")
-  .post(protect, authorize("admin", "manager"), generatePayroll);
+  .route("/")
+  .get(protect, getPayroll)
+  .post(protect, isAdmin, createPayrollValidationRules(), validate, createPayroll);
 router
   .route("/:id")
-  .put(protect, authorize("admin", "manager"), updatePayroll)
-  .delete(protect, authorize("admin", "manager"), deletePayroll);
-router
-  .route("/:id/process-payment")
-  .put(protect, authorize("admin", "manager"), processPayment);
+  .get(protect, getPayrollById)
+  .put(protect, isAdmin, updatePayroll);
 
 module.exports = router;

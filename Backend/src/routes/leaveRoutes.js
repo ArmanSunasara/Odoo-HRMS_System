@@ -2,24 +2,36 @@ const express = require("express");
 const {
   applyLeave,
   getLeaveRequests,
-  getLeaveRequest,
   updateLeaveStatus,
-  cancelLeaveRequest,
-  getLeaveBalance,
-  getLeaveTypes,
 } = require("../controllers/leaveController");
-const { protect, authorize } = require("../middlewares/authMiddleware");
+const { protect } = require("../middlewares/authMiddleware");
+const { isEmployee, isAdmin } = require("../middlewares/roleMiddleware");
+const {
+  applyLeaveValidationRules,
+  updateLeaveStatusValidationRules,
+  validate,
+} = require("../utils/validators");
 
 const router = express.Router();
 
-router.route("/request").post(protect, applyLeave);
-router.route("/requests").get(protect, getLeaveRequests);
-router.route("/request/:id").get(protect, getLeaveRequest);
 router
-  .route("/request/:id/status")
-  .put(protect, authorize("admin", "manager"), updateLeaveStatus);
-router.route("/request/:id/cancel").put(protect, cancelLeaveRequest);
-router.route("/balance/:userId").get(protect, getLeaveBalance);
-router.route("/types").get(getLeaveTypes);
+  .route("/apply")
+  .post(
+    protect,
+    isEmployee,
+    applyLeaveValidationRules(),
+    validate,
+    applyLeave
+  );
+router.route("/").get(protect, getLeaveRequests);
+router
+  .route("/:id/status")
+  .put(
+    protect,
+    isAdmin,
+    updateLeaveStatusValidationRules(),
+    validate,
+    updateLeaveStatus
+  );
 
 module.exports = router;

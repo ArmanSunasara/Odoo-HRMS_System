@@ -2,16 +2,18 @@ const Leave = require("../models/Leave");
 const User = require("../models/User");
 
 // @desc    Apply for leave
-// @route   POST /api/leave/request
-// @access  Private
+// @route   POST /api/leave/apply
+// @access  Private/Employee
 const applyLeave = async (req, res, next) => {
   try {
-    const { leaveType, startDate, endDate, reason, documents } = req.body;
-    const userId = req.user.id;
+    const { leaveType, startDate, endDate, reason } = req.body;
+    const employeeId = req.user.id;
 
     // Validate dates
     const start = new Date(startDate);
     const end = new Date(endDate);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
 
     if (start > end) {
       return res.status(400).json({
@@ -22,7 +24,7 @@ const applyLeave = async (req, res, next) => {
 
     // Check for overlapping leave requests
     const overlappingLeave = await Leave.findOne({
-      user: userId,
+      employee: employeeId,
       $or: [
         { startDate: { $gte: start, $lte: end } },
         { endDate: { $gte: start, $lte: end } },
@@ -39,12 +41,12 @@ const applyLeave = async (req, res, next) => {
     }
 
     const leave = await Leave.create({
-      user: userId,
+      employee: employeeId,
       leaveType,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
+      startDate: start,
+      endDate: end,
       reason,
-      documents: documents || [],
+      status: "Pending",
     });
 
     res.status(201).json({
@@ -57,41 +59,42 @@ const applyLeave = async (req, res, next) => {
   }
 };
 
-// @desc    Get leave requests for a user
-// @route   GET /api/leave/requests
+// @desc    Get leave requests
+// @route   GET /api/leave
 // @access  Private
 const getLeaveRequests = async (req, res, next) => {
   try {
-    const {
-      userId,
-      status,
-      startDate,
-      endDate,
-      page = 1,
-      limit = 10,
-    } = req.query;
-    const currentUserId = req.user.id;
+    const { status, page = 1, limit = 10 } = req.query;
+    const employeeId = req.user.id;
     const userRole = req.user.role;
 
-    // Only allow users to view their own requests unless they are admin/manager
-    let queryUserId = currentUserId;
-    if (userRole === "admin" || userRole === "manager") {
-      queryUserId = userId || currentUserId;
+    let filter = {};
+
+    // Employee can only view their own leaves
+    if (userRole === "EMPLOYEE") {
+      filter.employee = employeeId;
+    } else if (userRole === "ADMIN") {
+      // Admin can view all or filter by employeeId if provided
+      if (req.query.employeeId) {
+        const employee = await User.findOne({ employeeId: req.query.employeeId });
+        if (employee) {
+          filter.employee = employee._id;
+        } else {
+          return res.status(404).json({
+            success: false,
+            message: "Employee not found",
+          });
+        }
+      }
     }
 
-    // Build filter object
-    const filter = { user: queryUserId };
-    if (status) filter.status = status;
-    if (startDate || endDate) {
-      filter.startDate = {};
-      if (startDate) filter.startDate.$gte = new Date(startDate);
-      if (endDate) filter.startDate.$lte = new Date(endDate);
+    if (status) {
+      filter.status = status;
     }
 
     const leaveRequests = await Leave.find(filter)
-      .populate("user", "name email")
-      .populate("approvedBy", "name email")
-      .sort({ appliedDate: -1 })
+      .populate("employee", "employeeId name email")
+      .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
@@ -99,75 +102,34 @@ const getLeaveRequests = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      count: leaveRequests.length,
-      total,
-      page: parseInt(page),
-      pages: Math.ceil(total / limit),
-      data: leaveRequests,
+      message: "Leave requests retrieved successfully",
+      data: {
+        requests: leaveRequests,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      },
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Get leave request by ID
-// @route   GET /api/leave/request/:id
-// @access  Private
-const getLeaveRequest = async (req, res, next) => {
-  try {
-    const leave = await Leave.findById(req.params.id)
-      .populate("user", "name email")
-      .populate("approvedBy", "name email");
-
-    if (!leave) {
-      return res.status(404).json({
-        success: false,
-        message: "Leave request not found",
-      });
-    }
-
-    // Check if user can access this record
-    if (
-      req.user.role !== "admin" &&
-      req.user.role !== "manager" &&
-      leave.user._id.toString() !== req.user.id.toString()
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: leave,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Update leave request status
-// @route   PUT /api/leave/request/:id/status
-// @access  Private/Manager/Admin
+// @desc    Approve or reject leave
+// @route   PUT /api/leave/:id/status
+// @access  Private/Admin
 const updateLeaveStatus = async (req, res, next) => {
   try {
-    const { status, managerNote } = req.body;
+    const { status, adminComment } = req.body;
     const { id } = req.params;
 
-    if (!["Approved", "Rejected", "Cancelled"].includes(status)) {
+    if (!["Approved", "Rejected"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status. Use Approved, Rejected, or Cancelled",
-      });
-    }
-
-    // Check if user is authorized to update status
-    if (req.user.role !== "admin" && req.user.role !== "manager") {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Access denied. Only managers and admins can update leave status.",
+        message: "Invalid status. Use Approved or Rejected",
       });
     }
 
@@ -179,12 +141,10 @@ const updateLeaveStatus = async (req, res, next) => {
       });
     }
 
-    // Update status and approval details
     leave.status = status;
-    leave.approvedBy = req.user.id;
-    leave.approvedDate = Date.now();
-    if (managerNote) leave.managerNote = managerNote;
-
+    if (adminComment) {
+      leave.adminComment = adminComment;
+    }
     await leave.save();
 
     res.status(200).json({
@@ -197,161 +157,8 @@ const updateLeaveStatus = async (req, res, next) => {
   }
 };
 
-// @desc    Cancel leave request
-// @route   PUT /api/leave/request/:id/cancel
-// @access  Private
-const cancelLeaveRequest = async (req, res, next) => {
-  try {
-    const leave = await Leave.findById(req.params.id);
-
-    if (!leave) {
-      return res.status(404).json({
-        success: false,
-        message: "Leave request not found",
-      });
-    }
-
-    // Check if user can cancel this request
-    if (leave.user.toString() !== req.user.id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied. You can only cancel your own leave requests.",
-      });
-    }
-
-    // Cannot cancel if already approved/rejected
-    if (leave.status !== "Pending") {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot cancel a leave request that is already processed.",
-      });
-    }
-
-    leave.status = "Cancelled";
-    await leave.save();
-
-    res.status(200).json({
-      success: true,
-      message: "Leave request cancelled successfully",
-      data: leave,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Get leave balance for a user
-// @route   GET /api/leave/balance/:userId
-// @access  Private
-const getLeaveBalance = async (req, res, next) => {
-  try {
-    const { userId } = req.params;
-    const currentUserId = req.user.id;
-    const userRole = req.user.role;
-
-    // Only allow users to view their own balance unless they are admin/manager
-    const queryUserId =
-      userRole === "admin" || userRole === "manager" ? userId : currentUserId;
-
-    // Calculate leave balance based on company policy
-    // For demonstration, using fixed leave allocation
-    const totalCasualLeave = 12;
-    const totalVacationLeave = 15;
-    const totalSickLeave = 10;
-
-    // Get approved leaves for the current year
-    const currentYear = new Date().getFullYear();
-    const startDateOfYear = new Date(currentYear, 0, 1);
-    const endDateOfYear = new Date(currentYear, 11, 31);
-
-    const approvedLeaves = await Leave.find({
-      user: queryUserId,
-      status: "Approved",
-      startDate: { $gte: startDateOfYear, $lte: endDateOfYear },
-    });
-
-    // Calculate used leaves by type
-    let usedCasual = 0;
-    let usedVacation = 0;
-    let usedSick = 0;
-
-    approvedLeaves.forEach((leave) => {
-      const days =
-        Math.ceil(
-          (new Date(leave.endDate) - new Date(leave.startDate)) /
-            (1000 * 60 * 60 * 24)
-        ) + 1;
-
-      switch (leave.leaveType) {
-        case "Casual":
-          usedCasual += days;
-          break;
-        case "Vacation":
-          usedVacation += days;
-          break;
-        case "Sick":
-          usedSick += days;
-          break;
-      }
-    });
-
-    const leaveBalance = {
-      casual: {
-        total: totalCasualLeave,
-        used: usedCasual,
-        remaining: totalCasualLeave - usedCasual,
-      },
-      vacation: {
-        total: totalVacationLeave,
-        used: usedVacation,
-        remaining: totalVacationLeave - usedVacation,
-      },
-      sick: {
-        total: totalSickLeave,
-        used: usedSick,
-        remaining: totalSickLeave - usedSick,
-      },
-    };
-
-    res.status(200).json({
-      success: true,
-      data: leaveBalance,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Get all leave types
-// @route   GET /api/leave/types
-// @access  Public
-const getLeaveTypes = async (req, res, next) => {
-  try {
-    const leaveTypes = [
-      "Casual",
-      "Vacation",
-      "Sick",
-      "Personal",
-      "Maternity",
-      "Paternity",
-      "Unpaid",
-    ];
-
-    res.status(200).json({
-      success: true,
-      data: leaveTypes,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 module.exports = {
   applyLeave,
   getLeaveRequests,
-  getLeaveRequest,
   updateLeaveStatus,
-  cancelLeaveRequest,
-  getLeaveBalance,
-  getLeaveTypes,
 };

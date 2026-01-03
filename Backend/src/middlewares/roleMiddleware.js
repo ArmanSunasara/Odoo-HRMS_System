@@ -28,28 +28,10 @@ const isAdmin = (req, res, next) => {
     });
   }
 
-  if (req.user.role !== "admin") {
+  if (req.user.role !== "ADMIN") {
     return res.status(403).json({
       success: false,
       message: "Access denied. Admin access required.",
-    });
-  }
-
-  next();
-};
-
-const isManager = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: "Access denied. User not authenticated.",
-    });
-  }
-
-  if (req.user.role !== "manager" && req.user.role !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Access denied. Manager or admin access required.",
     });
   }
 
@@ -64,11 +46,7 @@ const isEmployee = (req, res, next) => {
     });
   }
 
-  if (
-    req.user.role !== "employee" &&
-    req.user.role !== "manager" &&
-    req.user.role !== "admin"
-  ) {
+  if (req.user.role !== "EMPLOYEE" && req.user.role !== "ADMIN") {
     return res.status(403).json({
       success: false,
       message: "Access denied. Employee access required.",
@@ -81,6 +59,5 @@ const isEmployee = (req, res, next) => {
 module.exports = {
   roleAuth,
   isAdmin,
-  isManager,
   isEmployee,
 };

@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const attendanceSchema = new mongoose.Schema(
   {
-    user: {
+    employee: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
@@ -10,43 +10,17 @@ const attendanceSchema = new mongoose.Schema(
     date: {
       type: Date,
       required: [true, "Date is required"],
-      default: Date.now,
     },
-    checkIn: {
+    checkInTime: {
       type: Date,
-      required: false,
     },
-    checkOut: {
+    checkOutTime: {
       type: Date,
-      required: false,
     },
     status: {
       type: String,
-      enum: ["Present", "Absent", "Half Day", "Leave", "Holiday"],
+      enum: ["Present", "Absent", "Half-day", "Leave"],
       default: "Absent",
-    },
-    hoursWorked: {
-      type: Number,
-      default: 0,
-    },
-    location: {
-      type: {
-        type: String,
-        default: "Point",
-      },
-      coordinates: {
-        type: [Number], // [longitude, latitude]
-        index: "2dsphere",
-      },
-    },
-    deviceInfo: {
-      type: String,
-      trim: true,
-    },
-    remarks: {
-      type: String,
-      trim: true,
-      maxlength: [200, "Remarks cannot exceed 200 characters"],
     },
   },
   {
@@ -54,9 +28,9 @@ const attendanceSchema = new mongoose.Schema(
   }
 );
 
-// Index for efficient queries
-attendanceSchema.index({ user: 1, date: 1 }, { unique: true });
+// Indexes
+attendanceSchema.index({ employee: 1, date: 1 }, { unique: true });
 attendanceSchema.index({ date: 1 });
-attendanceSchema.index({ user: 1, date: -1 });
+attendanceSchema.index({ employee: 1, date: -1 });
 
 module.exports = mongoose.model("Attendance", attendanceSchema);

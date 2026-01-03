@@ -9,6 +9,7 @@ const {
   updateProfile,
 } = require("../controllers/userController");
 const { protect, authorize } = require("../middlewares/authMiddleware");
+const { isAdmin } = require("../middlewares/roleMiddleware");
 
 const router = express.Router();
 
@@ -16,17 +17,14 @@ const router = express.Router();
 router.route("/profile").get(protect, getProfile).put(protect, updateProfile);
 
 // Admin only routes
-router
-  .route("/")
-  .get(protect, authorize("admin"), getUsers)
-  .post(protect, authorize("admin"), updateUser); // This route doesn't exist, will create later
+router.route("/").get(protect, isAdmin, getUsers);
 
 router
   .route("/:id")
   .get(protect, getUserById)
-  .put(protect, authorize("admin", "manager"), updateUser)
-  .delete(protect, authorize("admin"), deleteUser);
+  .put(protect, isAdmin, updateUser)
+  .delete(protect, isAdmin, deleteUser);
 
-router.route("/:id/role").put(protect, authorize("admin"), updateUserRole);
+router.route("/:id/role").put(protect, isAdmin, updateUserRole);
 
 module.exports = router;

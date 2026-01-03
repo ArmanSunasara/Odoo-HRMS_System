@@ -28,10 +28,10 @@ const protect = async (req, res, next) => {
         });
       }
 
-      if (!req.user.isActive) {
+      if (!req.user.isVerified) {
         return res.status(401).json({
           success: false,
-          message: "Not authorized, account is inactive",
+          message: "Not authorized, account is not verified",
         });
       }
 
