@@ -10,19 +10,24 @@ function Sidebar() {
   const getMenuItems = () => {
     if (!user) return [];
 
+    const isAdmin = user.role === "ADMIN";
+    const isEmployee = user.role === "EMPLOYEE";
+
     const commonItems = [
       {
         name: "Dashboard",
-        path:
-          user.role === "admin" ? "/admin-dashboard" : "/employee-dashboard",
+        path: isAdmin ? "/admin/dashboard" : "/employee/dashboard",
+        icon: "📊",
       },
-      { name: "Profile", path: "/profile" },
-      { name: "Attendance", path: "/attendance" },
-      { name: "Leave", path: "/leave" },
+      { name: "Profile", path: "/profile", icon: "👤" },
+      { name: "Attendance", path: "/attendance", icon: "⏰" },
+      { name: "Leave", path: "/leave", icon: "📅" },
     ];
 
-    if (user.role === "admin" || user.role === "manager") {
-      commonItems.push({ name: "Payroll", path: "/payroll" });
+    if (isAdmin) {
+      commonItems.push({ name: "Payroll", path: "/payroll", icon: "💰" });
+    } else if (isEmployee) {
+      commonItems.push({ name: "Payroll", path: "/payroll", icon: "💰" });
     }
 
     return commonItems;
@@ -30,19 +35,26 @@ function Sidebar() {
 
   const menuItems = getMenuItems();
 
+  const isActive = (path) => {
+    return location.pathname === path || location.pathname.startsWith(path + "/");
+  };
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <h3>HR Management</h3>
+        <h3>Menu</h3>
       </div>
       <nav className="sidebar-nav">
         <ul>
           {menuItems.map((item, index) => (
             <li
               key={index}
-              className={location.pathname === item.path ? "active" : ""}
+              className={isActive(item.path) ? "active" : ""}
             >
-              <Link to={item.path}>{item.name}</Link>
+              <Link to={item.path}>
+                <span className="menu-icon">{item.icon}</span>
+                <span className="menu-text">{item.name}</span>
+              </Link>
             </li>
           ))}
         </ul>

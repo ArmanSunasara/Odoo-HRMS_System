@@ -1,35 +1,39 @@
 import api from "./api";
 
 export const leaveService = {
-  getLeaveRequests: async (userId) => {
-    const response = await api.get("/leave/requests", {
-      params: {
-        userId,
-      },
-    });
+  // Get all leave requests
+  getLeaveRequests: async (params = {}) => {
+    const response = await api.get("/leave", { params });
     return response.data;
   },
 
+  // Get leave by ID
+  getLeaveById: async (id) => {
+    const response = await api.get(`/leave/${id}`);
+    return response.data;
+  },
+
+  // Submit leave request
   submitLeaveRequest: async (leaveData) => {
-    const response = await api.post("/leave/request", leaveData);
+    const response = await api.post("/leave/apply", leaveData);
     return response.data;
   },
 
-  updateLeaveStatus: async (requestId, status, managerNote = "") => {
-    const response = await api.put(`/leave/request/${requestId}/status`, {
-      status,
-      managerNote,
-    });
+  // Update leave request
+  updateLeaveRequest: async (id, leaveData) => {
+    const response = await api.put(`/leave/${id}`, leaveData);
     return response.data;
   },
 
-  getLeaveBalance: async (userId) => {
-    const response = await api.get(`/leave/balance/${userId}`);
+  // Approve leave (Admin only)
+  approveLeave: async (id) => {
+    const response = await api.put(`/leave/${id}/status`, { status: "Approved" });
     return response.data;
   },
 
-  getLeaveTypes: async () => {
-    const response = await api.get("/leave/types");
+  // Reject leave (Admin only)
+  rejectLeave: async (id) => {
+    const response = await api.put(`/leave/${id}/status`, { status: "Rejected" });
     return response.data;
   },
 };

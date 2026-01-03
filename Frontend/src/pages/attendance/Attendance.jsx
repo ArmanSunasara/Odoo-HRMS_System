@@ -1,174 +1,375 @@
 import React, { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { attendanceService } from "../../services/attendanceService";
+import {
+  fetchAttendanceStart,
+  fetchAttendanceSuccess,
+  fetchAttendanceFailure,
+  markAttendanceStart,
+  markAttendanceSuccess,
+  markAttendanceFailure,
+} from "../../redux/slices/attendanceSlice";
 import Sidebar from "../../components/common/Sidebar";
 import Navbar from "../../components/common/Navbar";
-import AttendanceCard from "../../components/cards/AttendanceCard";
+import Card from "../../components/common/Card";
+import Button from "../../components/common/Button";
+import Loader from "../../components/common/Loader";
 import { formatDate } from "../../utils/helpers";
 
 function Attendance() {
+  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const [attendanceRecords, setAttendanceRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState({
+  const { records, loading, error } = useSelector((state) => state.attendance);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [todayAttendance, setTodayAttendance] = useState(null);
+  const [canClockIn, setCanClockIn] = useState(true);
+  const [canClockOut, setCanClockOut] = useState(false);
+  const [dateFilter, setDateFilter] = useState({
     startDate: "",
     endDate: "",
   });
-  const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Update current time every minute
+  // Update current time every second
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-    }, 60000);
-
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
   // Fetch attendance records
   useEffect(() => {
-    const fetchAttendance = async () => {
-      try {
-        // In a real app, this would fetch from the API
-        // const records = await attendanceService.getAttendanceRecords(user.id, dateRange);
-        // For now, using mock data
-        const mockRecords = [
-          {
-            id: 1,
-            date: "2023-06-01",
-            checkIn: "09:00 AM",
-            checkOut: "06:00 PM",
-            status: "Present",
-            hoursWorked: "9",
-          },
-          {
-            id: 2,
-            date: "2023-06-02",
-            checkIn: "09:15 AM",
-            checkOut: "05:45 PM",
-            status: "Present",
-            hoursWorked: "8.5",
-          },
-          {
-            id: 3,
-            date: "2023-06-03",
-            checkIn: "09:00 AM",
-            checkOut: "06:00 PM",
-            status: "Present",
-            hoursWorked: "9",
-          },
-          {
-            id: 4,
-            date: "2023-06-04",
-            checkIn: "",
-            checkOut: "",
-            status: "Absent",
-            hoursWorked: "0",
-          },
-          {
-            id: 5,
-            date: "2023-06-05",
-            checkIn: "09:00 AM",
-            checkOut: "04:00 PM",
-            status: "Half Day",
-            hoursWorked: "7",
-          },
-        ];
-        setAttendanceRecords(mockRecords);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching attendance:", error);
-        setLoading(false);
+    fetchAttendanceRecords();
+    checkTodayAttendance();
+  }, [dateFilter]);
+
+  const fetchAttendanceRecords = async () => {
+    try {
+      dispatch(fetchAttendanceStart());
+      const params = {};
+      if (dateFilter.startDate) params.startDate = dateFilter.startDate;
+      if (dateFilter.endDate) params.endDate = dateFilter.endDate;
+
+      const response = await attendanceService.getAttendanceRecords(params);
+      const attendanceData = Array.isArray(response)
+        ? response
+        : response.data || [];
+
+      dispatch(fetchAttendanceSuccess(attendanceData));
+    } catch (error) {
+      dispatch(
+        fetchAttendanceFailure(
+          error.response?.data?.message || "Failed to fetch attendance records"
+        )
+      );
+    }
+  };
+
+  const checkTodayAttendance = async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const response = await attendanceService.getAttendanceRecords({
+        date: today,
+      });
+      const todayRecords = Array.isArray(response)
+        ? response
+        : response.data || [];
+
+      if (todayRecords.length > 0) {
+        const todayRecord = todayRecords[0];
+        setTodayAttendance(todayRecord);
+        setCanClockIn(false);
+        setCanClockOut(!!todayRecord.clockIn && !todayRecord.clockOut);
+      } else {
+        setTodayAttendance(null);
+        setCanClockIn(true);
+        setCanClockOut(false);
       }
-    };
+    } catch (error) {
+      console.error("Error checking today's attendance:", error);
+    }
+  };
 
-    fetchAttendance();
-  }, [user, dateRange]);
+  const handleClockIn = async () => {
+    try {
+      dispatch(markAttendanceStart());
+      const response = await attendanceService.clockIn();
+      dispatch(markAttendanceSuccess(response));
+      setTodayAttendance(response);
+      setCanClockIn(false);
+      setCanClockOut(true);
+      fetchAttendanceRecords();
+    } catch (error) {
+      dispatch(
+        markAttendanceFailure(
+          error.response?.data?.message || "Failed to clock in"
+        )
+      );
+      alert(error.response?.data?.message || "Failed to clock in");
+    }
+  };
 
-  const handleDateRangeChange = (e) => {
+  const handleClockOut = async () => {
+    try {
+      dispatch(markAttendanceStart());
+      const response = await attendanceService.clockOut();
+      dispatch(markAttendanceSuccess(response));
+      setTodayAttendance(response);
+      setCanClockOut(false);
+      fetchAttendanceRecords();
+    } catch (error) {
+      dispatch(
+        markAttendanceFailure(
+          error.response?.data?.message || "Failed to clock out"
+        )
+      );
+      alert(error.response?.data?.message || "Failed to clock out");
+    }
+  };
+
+  const handleDateFilterChange = (e) => {
     const { name, value } = e.target;
-    setDateRange({
-      ...dateRange,
+    setDateFilter({
+      ...dateFilter,
       [name]: value,
     });
   };
 
-  const handleMarkAttendance = async () => {
-    // In a real app, this would call the API to mark attendance
-    alert("Attendance marked successfully!");
+  const calculateHours = (clockIn, clockOut) => {
+    if (!clockIn || !clockOut) return "-";
+    const start = new Date(clockIn);
+    const end = new Date(clockOut);
+    const diffMs = end - start;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    return diffHours.toFixed(2);
   };
 
-  return (
-    <div className="attendance-layout">
-      <Sidebar />
-      <div className="attendance-content">
-        <Navbar />
-        <div className="attendance-main">
-          <h1>Attendance</h1>
+  const isAdmin = user?.role === "ADMIN";
 
-          <div className="attendance-controls">
-            <div className="date-filters">
+  return (
+    <div className="dashboard-layout">
+      <Sidebar />
+      <div className="dashboard-content">
+        <Navbar />
+        <div className="dashboard-main">
+          <div className="page-header">
+            <h1>Attendance Management</h1>
+            <p>Track and manage your attendance records</p>
+          </div>
+
+          {/* Clock In/Out Section - Only for Employees */}
+          {!isAdmin && (
+            <Card title="Today's Attendance" className="attendance-clock-card">
+              <div className="clock-section">
+                <div className="current-time-display">
+                  <div className="time-large">
+                    {currentTime.toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
+                  </div>
+                  <div className="date-display">
+                    {formatDate(currentTime, "EEEE, MMMM dd, yyyy")}
+                  </div>
+                </div>
+
+                <div className="attendance-status">
+                  {todayAttendance ? (
+                    <div className="status-info">
+                      <p>
+                        <strong>Clock In:</strong>{" "}
+                        {todayAttendance.clockIn
+                          ? new Date(todayAttendance.clockIn).toLocaleTimeString(
+                              "en-US",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )
+                          : "Not clocked in"}
+                      </p>
+                      {todayAttendance.clockOut && (
+                        <p>
+                          <strong>Clock Out:</strong>{" "}
+                          {new Date(todayAttendance.clockOut).toLocaleTimeString(
+                            "en-US",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="no-attendance">No attendance marked for today</p>
+                  )}
+                </div>
+
+                <div className="clock-actions">
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    onClick={handleClockIn}
+                    disabled={!canClockIn || loading}
+                    loading={loading && canClockIn}
+                  >
+                    Clock In
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={handleClockOut}
+                    disabled={!canClockOut || loading}
+                    loading={loading && canClockOut}
+                  >
+                    Clock Out
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Date Filter */}
+          <Card title="Filter Records" className="filter-card">
+            <div className="filter-controls">
               <div className="form-group">
-                <label htmlFor="startDate">Start Date:</label>
+                <label htmlFor="startDate">Start Date</label>
                 <input
                   type="date"
                   id="startDate"
                   name="startDate"
-                  value={dateRange.startDate}
-                  onChange={handleDateRangeChange}
+                  value={dateFilter.startDate}
+                  onChange={handleDateFilterChange}
+                  className="form-input"
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="endDate">End Date:</label>
+                <label htmlFor="endDate">End Date</label>
                 <input
                   type="date"
                   id="endDate"
                   name="endDate"
-                  value={dateRange.endDate}
-                  onChange={handleDateRangeChange}
+                  value={dateFilter.endDate}
+                  onChange={handleDateFilterChange}
+                  className="form-input"
                 />
               </div>
-              <button className="filter-btn">Filter</button>
-            </div>
-
-            <div className="attendance-clock">
-              <div className="current-time">
-                <h3>Current Time: {formatDate(currentTime, "hh:mm:ss a")}</h3>
-                <p>Date: {formatDate(currentTime, "dd/MM/yyyy")}</p>
-              </div>
-              <button
-                className="mark-attendance-btn"
-                onClick={handleMarkAttendance}
+              <Button
+                variant="outline"
+                onClick={fetchAttendanceRecords}
+                disabled={loading}
               >
-                Mark Attendance
-              </button>
+                Apply Filter
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDateFilter({ startDate: "", endDate: "" });
+                  fetchAttendanceRecords();
+                }}
+              >
+                Clear
+              </Button>
             </div>
-          </div>
+          </Card>
 
-          <div className="attendance-summary">
-            <div className="summary-card">
-              <h3>Monthly Summary</h3>
-              <p>Present: 20 days</p>
-              <p>Absent: 2 days</p>
-              <p>On Leave: 1 day</p>
-              <p>Working Hours: 160 hours</p>
+          {/* Error Display */}
+          {error && (
+            <div className="alert alert-error" role="alert">
+              {error}
             </div>
-          </div>
+          )}
 
-          <div className="attendance-records">
-            <h2>Attendance Records</h2>
+          {/* Attendance Records */}
+          <Card title={isAdmin ? "All Attendance Records" : "Your Attendance Records"}>
             {loading ? (
-              <p>Loading attendance records...</p>
-            ) : attendanceRecords.length > 0 ? (
-              <div className="attendance-list">
-                {attendanceRecords.map((record) => (
-                  <AttendanceCard key={record.id} attendance={record} />
-                ))}
+              <Loader message="Loading attendance records..." />
+            ) : records.length > 0 ? (
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      {isAdmin && <th>Employee</th>}
+                      <th>Date</th>
+                      <th>Clock In</th>
+                      <th>Clock Out</th>
+                      <th>Hours Worked</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {records.map((record, index) => (
+                      <tr key={record._id || record.id || index}>
+                        {isAdmin && (
+                          <td>
+                            {record.userId?.name ||
+                              record.user?.name ||
+                              "Employee"}
+                          </td>
+                        )}
+                        <td>
+                          {formatDate(
+                            record.date || record.createdAt,
+                            "dd/MM/yyyy"
+                          )}
+                        </td>
+                        <td>
+                          {record.clockIn
+                            ? new Date(record.clockIn).toLocaleTimeString(
+                                "en-US",
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )
+                            : "-"}
+                        </td>
+                        <td>
+                          {record.clockOut
+                            ? new Date(record.clockOut).toLocaleTimeString(
+                                "en-US",
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )
+                            : "-"}
+                        </td>
+                        <td>
+                          {calculateHours(record.clockIn, record.clockOut)}
+                          {record.clockIn && !record.clockOut ? " (ongoing)" : ""}
+                        </td>
+                        <td>
+                          <span
+                            className={`badge badge-${
+                              record.status === "PRESENT" || record.clockIn
+                                ? "success"
+                                : record.status === "ABSENT"
+                                ? "danger"
+                                : "warning"
+                            }`}
+                          >
+                            {record.status ||
+                              (record.clockIn
+                                ? record.clockOut
+                                  ? "PRESENT"
+                                  : "IN PROGRESS"
+                                : "PENDING")}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
-              <p>No attendance records found.</p>
+              <div className="empty-state">
+                <p>No attendance records found.</p>
+              </div>
             )}
-          </div>
+          </Card>
         </div>
       </div>
     </div>

@@ -1,34 +1,33 @@
 import api from "./api";
 
 export const attendanceService = {
-  getAttendanceRecords: async (userId, dateRange) => {
-    const response = await api.get("/attendance", {
-      params: {
-        userId,
-        ...dateRange,
-      },
-    });
+  // Clock in
+  clockIn: async () => {
+    const response = await api.post("/attendance/checkin");
     return response.data;
   },
 
-  markAttendance: async (attendanceData) => {
-    const response = await api.post("/attendance/mark", attendanceData);
+  // Clock out
+  clockOut: async () => {
+    const response = await api.post("/attendance/checkout");
     return response.data;
   },
 
-  getMonthlyReport: async (userId, month, year) => {
-    const response = await api.get("/attendance/monthly-report", {
-      params: {
-        userId,
-        month,
-        year,
-      },
-    });
+  // Get attendance records
+  getAttendanceRecords: async (params = {}) => {
+    const response = await api.get("/attendance", { params });
     return response.data;
   },
 
-  getAttendanceSummary: async (userId) => {
-    const response = await api.get(`/attendance/summary/${userId}`);
+  // Get attendance by ID
+  getAttendanceById: async (id) => {
+    const response = await api.get(`/attendance/${id}`);
+    return response.data;
+  },
+
+  // Get dashboard summary
+  getAttendanceSummary: async () => {
+    const response = await api.get("/attendance");
     return response.data;
   },
 };

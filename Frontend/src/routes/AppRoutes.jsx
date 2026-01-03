@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import PrivateRoute from "./PrivateRoute";
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
@@ -13,26 +13,31 @@ import Payroll from "../pages/payroll/Payroll";
 function AppRoutes() {
   return (
     <Routes>
+      {/* Public routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* Protected routes */}
+      {/* Protected Employee routes */}
       <Route
-        path="/employee-dashboard"
+        path="/employee/dashboard"
         element={
-          <PrivateRoute>
+          <PrivateRoute requiredRole="EMPLOYEE">
             <EmployeeDashboard />
           </PrivateRoute>
         }
       />
+
+      {/* Protected Admin routes */}
       <Route
-        path="/admin-dashboard"
+        path="/admin/dashboard"
         element={
-          <PrivateRoute>
+          <PrivateRoute requiredRole="ADMIN">
             <AdminDashboard />
           </PrivateRoute>
         }
       />
+
+      {/* Protected common routes */}
       <Route
         path="/profile"
         element={
@@ -66,15 +71,11 @@ function AppRoutes() {
         }
       />
 
-      {/* Default route */}
-      <Route
-        path="/"
-        element={
-          <PrivateRoute>
-            <EmployeeDashboard />
-          </PrivateRoute>
-        }
-      />
+      {/* Default route - redirect based on auth */}
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      
+      {/* Catch all - redirect to login */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

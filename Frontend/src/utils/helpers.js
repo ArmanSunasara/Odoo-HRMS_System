@@ -1,12 +1,34 @@
-import { format, parseISO, isAfter, isBefore } from "date-fns";
-
 // Format date to specified format
 export const formatDate = (date, formatStr = "dd/MM/yyyy") => {
   if (!date) return "";
+  
   try {
-    return format(parseISO(date), formatStr);
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "";
+
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    const seconds = String(d.getSeconds()).padStart(2, "0");
+    
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    return formatStr
+      .replace("dd", day)
+      .replace("MM", month)
+      .replace("yyyy", year)
+      .replace("HH", hours)
+      .replace("mm", minutes)
+      .replace("ss", seconds)
+      .replace("EEEE", days[d.getDay()])
+      .replace("MMMM", months[d.getMonth()])
+      .replace("hh", String(d.getHours() % 12 || 12).padStart(2, "0"))
+      .replace("a", d.getHours() >= 12 ? "PM" : "AM");
   } catch (error) {
-    return format(new Date(date), formatStr);
+    return "";
   }
 };
 
@@ -47,7 +69,8 @@ export const isFutureDate = (date) => {
   const inputDate = new Date(date);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  return isAfter(inputDate, today);
+  inputDate.setHours(0, 0, 0, 0);
+  return inputDate > today;
 };
 
 // Check if date is in the past
@@ -55,7 +78,8 @@ export const isPastDate = (date) => {
   const inputDate = new Date(date);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  return isBefore(inputDate, today);
+  inputDate.setHours(0, 0, 0, 0);
+  return inputDate < today;
 };
 
 // Generate unique ID
